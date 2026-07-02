@@ -179,3 +179,114 @@ Optional bonus:
 - add authentication for SSE or HTTP transport
 - support both SQLite and PostgreSQL with the same MCP surface
 - add richer output annotations or pagination
+## Completed Implementation
+
+The finished lab lives in `implementation/`:
+
+- `db.py` contains the SQLite adapter, schema inspection, validation, safe parameterized queries, search, insert, and aggregate logic.
+- `init_db.py` creates a reproducible SQLite database with `students`, `courses`, and `enrollments` seed data.
+- `mcp_server.py` exposes the FastMCP tools `search`, `insert`, and `aggregate` plus the resources `schema://database` and `schema://table/{table_name}`.
+- `verify_server.py` runs repeatable direct database checks.
+- `verify_mcp_client.py` connects through a FastMCP client and verifies tool/resource discovery plus a sample tool call.
+- `tests/` contains pytest coverage for valid calls and validation errors.
+
+### Setup
+
+```powershell
+cd implementation
+python -m pip install -r requirements.txt
+python init_db.py
+```
+
+### Run The MCP Server
+
+```powershell
+python implementation\mcp_server.py
+```
+
+The server uses stdio transport by default, which is the expected mode for local MCP clients.
+
+### Verify Locally
+
+```powershell
+python implementation\verify_server.py
+$env:PYTEST_DISABLE_PLUGIN_AUTOLOAD='1'; python -m pytest -p no:cacheprovider implementation\tests
+python implementation\verify_mcp_client.py
+```
+
+Expected `verify_mcp_client.py` output includes:
+
+- tools: `search`, `insert`, `aggregate`
+- resources: `schema://database`
+- resource templates: `schema://table/{table_name}`
+
+### Example Tool Calls
+
+Search students in cohort A1:
+
+```json
+{
+  "table": "students",
+  "filters": {"cohort": "A1"},
+  "order_by": "score",
+  "descending": true,
+  "limit": 5
+}
+```
+
+Insert a student:
+
+```json
+{
+  "table": "students",
+  "values": {
+    "name": "Lan Vo",
+    "cohort": "A1",
+    "email": "lan.vo@example.edu",
+    "score": 82.0,
+    "active": 1
+  }
+}
+```
+
+Average score by cohort:
+
+```json
+{
+  "table": "students",
+  "metric": "avg",
+  "column": "score",
+  "group_by": "cohort"
+}
+```
+
+### Inspector
+
+```powershell
+cd implementation
+.\start_inspector.ps1
+```
+
+### Client Configuration Example
+
+Codex `~/.codex/config.toml` example:
+
+```toml
+[mcp_servers.sqlite_lab]
+command = "python"
+args = ["C:/Users/Admin/Documents/GitHub/Day26-Track3-MCP-tool-integration/implementation/mcp_server.py"]
+```
+
+Claude Code `.mcp.json` example:
+
+```json
+{
+  "mcpServers": {
+    "sqlite-lab": {
+      "type": "stdio",
+      "command": "python",
+      "args": ["C:/Users/Admin/Documents/GitHub/Day26-Track3-MCP-tool-integration/implementation/mcp_server.py"]
+    }
+  }
+}
+```
